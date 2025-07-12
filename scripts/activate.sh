@@ -1,0 +1,1 @@
+source ~/main/bin/activate

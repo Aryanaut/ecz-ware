@@ -1,0 +1,1 @@
+pip install -r scripts/dependencies.txt
