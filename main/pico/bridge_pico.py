@@ -2,17 +2,21 @@ import socket
 import time
 
 class Bridge:
-    def __init__(self, host, port):
+    def __init__(self, host, port, recieve=False):
         self.host = host
         self.port = port
         self.socket = None
+        self.recieve = recieve # couldn't think of a better way of making this bridge two way
 
     def connect(self):
 
         """Establish a connection to the bridge."""
 
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.socket.settimeout(2)  # Set a timeout for receiving data
         # self.socket.connect((self.host, self.port))
+        if self.recieve:
+            self.socket.bind(("0.0.0.0", self.port)) # Open on all channels I think
         print(f"Connected to bridge at {self.host}:{self.port}")
 
     def send_data(self, data):
@@ -31,9 +35,15 @@ class Bridge:
 
         if not self.socket:
             raise ConnectionError("Socket is not connected.")
-        data = self.socket.recvfrom(1024).decode()
-        print(f"Received data: {data}")
-        return data
+
+        try:
+            data, addr = self.socket.recvfrom(1024)
+            print(f"Received data: {data.decode()}")
+            return data.decode()
+
+        except socket.timeout:
+            print("No data received, waiting...")
+            return None
 
     def close(self):
 
