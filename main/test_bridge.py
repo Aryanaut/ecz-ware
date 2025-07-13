@@ -1,12 +1,18 @@
 from bridge import Bridge
 
-b = Bridge("172.20.10.22", 12345, recieve=True)
-b.connect()
+reciever = Bridge("172.20.10.22", 12345, recieve=True)
+receiver.connect()
+
+sender = Bridge("172.20.10.22", 12345)
+sender.connect()
 
 while True:
     try:
         # i = input("Enter data to send: ")
-        b.receive_data()
+        data = b.receive_data()
+        if len(data[0]) == 2:
+
+
     except KeyboardInterrupt:
         print("Exiting...")
         b.close()
