@@ -4,3 +4,5 @@ streamlit
 matplotlib
 numpy
 sklearn
+tensorflow
+pandas
