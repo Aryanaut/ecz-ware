@@ -25,7 +25,7 @@ class Bridge:
         if not self.socket:
             raise ConnectionError("Socket is not connected.")
             
-        self.socket.sendto(data.encode(), (self.host, self.port))
+        self.socket.sendto(data, (self.host, self.port))
         print(f"Sent data: {data}")
 
     def receive_data(self):
@@ -35,8 +35,8 @@ class Bridge:
         if not self.socket:
             raise ConnectionError("Socket is not connected.")
         data, addr = self.socket.recvfrom(1024)
-        print(f"Received data: {data.decode()}")
-        return data.decode()
+        print(f"Received data: {data}")
+        return data
 
     def close(self):
 
