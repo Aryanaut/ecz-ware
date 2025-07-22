@@ -6,9 +6,9 @@ from scipy.signal import butter, filtfilt, iirnotch, periodogram
 
 SAMPLING_RATE = 1000
 WIN = 1000  # window length
-NFFT = 128
-NPERSEG = 128
-NOVERLAP = 64
+NFFT = 256
+NPERSEG = 255
+NOVERLAP = 124
 
 def normalize(data):
     data = data - np.mean(data)
