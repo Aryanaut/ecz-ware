@@ -3,6 +3,8 @@ import time
 import numpy as np
 from sampler import *
 import os
+import struct
+import matplotlib.pyplot as plt
 
 SAMPLING_RATE = 1000
 WIN = 1000  # window length
@@ -10,7 +12,7 @@ NFFT = 128
 NPERSEG = 128
 NOVERLAP = 64
 
-model = tf.keras.models.load_model("training/models/first_9412_accuracy.keras")
+model = tf.keras.models.load_model("training/models/first_9599_accuracy.keras")
 
 print("Model loaded successfully.")
 
@@ -18,20 +20,22 @@ receiver = Bridge("0.0.0.0", 12345, recieve=True)
 receiver.connect()
 
 sender = Bridge("172.20.10.45", 12345)
+sender = Bridge("172.20.10.45", 12345)
 sender.connect()
 
 count = 0
 
 # ch1, ch2 = [1.5,]*1000, [1.5,]*1000
 
-ch1, ch2 = [], []
+ch1 = np.zeros(SAMPLING_RATE)
+ch2 = np.zeros(SAMPLING_RATE)
 
 while True:
     try:
         # i = input("Enter data to send: ")
-        line = receiver.receive_data()
+        data = receiver.receive_data()
 
-        values = struct.unpack('2000H', data)
+        values = struct.unpack('200H', data)
 
         v1 = np.array(values[0::2])
         v2 = np.array(values[1::2])
@@ -43,14 +47,26 @@ while True:
         nch2 = np.array(v2)
         # print(ch1, ch2)
 
+        ch1 = np.roll(ch1, -len(nch1))
+        ch2 = np.roll(ch2, -len(nch2))
+        ch1[-len(v1):] = nch1
+        ch2[-len(v2):] = nch2
+
+        print(ch1.shape, ch2.shape)
+
         # Cleanup with fs=1000
-        nch1 = cleanup(ch1)
-        nch2 = cleanup(ch2)
+        ch1 = cleanup(ch1)
+        ch2 = cleanup(ch2)
 
         # Combine and convert to spectrogram
-        current = np.stack([ch1, ch2], axis=1)  # shape (1000, 2)
-        spec = make_spectrogram(current)        # shape (freq, time, channels)
+        spec1 = get_spectrogram(tf.convert_to_tensor(ch1, dtype=tf.float32))
+        spec2 = get_spectrogram(tf.convert_to_tensor(ch2, dtype=tf.float32))    # shape (freq, time, channels)
 
+        spec = np.stack([spec1, spec2], axis=-1) 
+
+        spec = np.expand_dims(spec, axis=0)
+
+        print(spec1.shape, spec2.shape, spec.shape)
         # shape (1, freq, time, channels)
 
         # Predict
@@ -64,6 +80,16 @@ while True:
 
     except KeyboardInterrupt:
         print("Exiting...")
+        f1, t1, spec1 = stft(tf.convert_to_tensor(ch1, dtype=tf.float32), sampling_rate=SAMPLING_RATE, return_full=True)
+        f2, t2, spec2 = stft(tf.convert_to_tensor(ch2, dtype=tf.float32), sampling_rate=SAMPLING_RATE, return_full=True)
+        print(spec1.shape)
+        plt.figure(figsize=(10, 4))
+        plt.pcolormesh(t1, f1, spec1, shading='gouraud')
+        plt.title('Spectrogram')
+        plt.ylabel('Frequency [Hz]')
+        plt.xlabel('Time [sec]')
+        plt.colorbar(label='Amplitude')  # limit frequency range to make plot clearer
+        plt.savefig('scratch_data_rest.png')
         receiver.close()
         sender.close()
         break

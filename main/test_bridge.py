@@ -24,7 +24,7 @@ while True:
         v1 = v1 * 3.3 / 65535
         v2 = v2 * 3.3 / 65535
 
-        print(v1, v2)
+        print(len(v1), len(v2))
         s_count += 1
 
     except KeyboardInterrupt:

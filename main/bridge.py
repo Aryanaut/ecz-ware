@@ -35,7 +35,7 @@ class Bridge:
         if not self.socket:
             raise ConnectionError("Socket is not connected.")
         data, addr = self.socket.recvfrom(1024)
-        print(f"Received data: {data}")
+        # print(f"Received data: {data}")
         return data
 
     def close(self):
