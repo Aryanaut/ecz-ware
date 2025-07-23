@@ -12,7 +12,7 @@ NFFT = 128
 NPERSEG = 128
 NOVERLAP = 64
 
-model = tf.keras.models.load_model("training/models/first_9599_accuracy.keras")
+model = tf.keras.models.load_model("training/models/first_9921_accuracy.keras")
 
 print("Model loaded successfully.")
 
@@ -82,14 +82,24 @@ while True:
         print("Exiting...")
         f1, t1, spec1 = stft(tf.convert_to_tensor(ch1, dtype=tf.float32), sampling_rate=SAMPLING_RATE, return_full=True)
         f2, t2, spec2 = stft(tf.convert_to_tensor(ch2, dtype=tf.float32), sampling_rate=SAMPLING_RATE, return_full=True)
-        print(spec1.shape)
-        plt.figure(figsize=(10, 4))
-        plt.pcolormesh(t1, f1, spec1, shading='gouraud')
-        plt.title('Spectrogram')
-        plt.ylabel('Frequency [Hz]')
-        plt.xlabel('Time [sec]')
-        plt.colorbar(label='Amplitude')  # limit frequency range to make plot clearer
-        plt.savefig('scratch_data_rest.png')
+        print("Channel 1 mean amplitude:", np.mean(spec1))
+        print("Channel 2 mean amplitude:", np.mean(spec2))
+        fig, axes = plt.subplots(2, 1, figsize=(12, 8), sharex=True, sharey=True)
+
+        pcm1 = axes[0].pcolormesh(t1, f1, spec1, shading='gouraud', cmap='viridis')
+        axes[0].set_title('Spectrogram - Channel 1')
+        axes[0].set_ylabel('Frequency [Hz]')
+        fig.colorbar(pcm1, ax=axes[0], label='Amplitude')
+
+        pcm2 = axes[1].pcolormesh(t2, f2, spec2, shading='gouraud', cmap='viridis')
+        axes[1].set_title('Spectrogram - Channel 2')
+        axes[1].set_ylabel('Frequency [Hz]')
+        axes[1].set_xlabel('Time [sec]')
+        fig.colorbar(pcm2, ax=axes[1], label='Amplitude')
+
+        plt.tight_layout()
+        plt.savefig('rest_data_both_channels.png')
+        plt.close()
         receiver.close()
         sender.close()
         break

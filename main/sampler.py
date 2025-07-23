@@ -14,7 +14,7 @@ def normalize(data):
     return (data - np.mean(data)) / (np.std(data) + 1e-8)
 
 
-def bandpass_filter(data, lowcut=5.0, highcut=90.0, fs=SAMPLING_RATE, order=4):
+def bandpass_filter(data, lowcut=5.0, highcut=200.0, fs=SAMPLING_RATE, order=4):
     nyq = 0.5 * fs
     b, a = butter(order, [lowcut/nyq, highcut/nyq], btype='band')
     return filtfilt(b, a, data)
@@ -24,7 +24,7 @@ def find_noise_frequency(data, fs=SAMPLING_RATE):
     idx = np.argmax(Pxx)
     return f[idx]
 
-def adaptive_notch_filter(data, fs=SAMPLING_RATE, quality=30):
+def adaptive_notch_filter(data, fs=SAMPLING_RATE, quality=50):
     freq = find_noise_frequency(data, fs=fs)
     nyq = 0.5 * fs
     b, a = iirnotch(freq/nyq, quality)
