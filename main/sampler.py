@@ -31,7 +31,7 @@ def adaptive_notch_filter(data, fs=SAMPLING_RATE, quality=50):
     return filtfilt(b, a, data)
 
 def cleanup(data):
-    data = normalize(data)
+    # data = normalize(data)
     data = bandpass_filter(data)
     data = adaptive_notch_filter(data)
     return data

@@ -12,7 +12,8 @@ NFFT = 128
 NPERSEG = 128
 NOVERLAP = 64
 
-model = tf.keras.models.load_model("training/models/first_9921_accuracy.keras")
+model_spec = tf.keras.models.load_model("training/models/spec/first_9921_accuracy.keras")
+model_lstm = tf.keras.models.load_model("training/models/lstm/mlp_stats_raina.keras")
 
 print("Model loaded successfully.")
 
@@ -29,6 +30,43 @@ count = 0
 
 ch1 = np.zeros(SAMPLING_RATE)
 ch2 = np.zeros(SAMPLING_RATE)
+
+def predict_spectrogram(clean1, clean2):
+
+    # Combine and convert to spectrogram
+    spec1 = get_spectrogram(tf.convert_to_tensor(clean1, dtype=tf.float32))
+    spec2 = get_spectrogram(tf.convert_to_tensor(clean2, dtype=tf.float32))    # shape (freq, time, channels)
+
+    spec = np.stack([spec1, spec2], axis=-1) 
+
+    spec = np.expand_dims(spec, axis=0)
+
+    print(spec1.shape, spec2.shape, spec.shape)
+    # shape (1, freq, time, channels)
+
+    # Predict using
+    preds = model_spec.predict(spec)
+    label = np.argmax(preds, axis=1)
+    return label
+    # print(preds)
+
+    # print(f"Predicted label: {label}")
+
+def predict_LSTM(clean1, clean2):
+
+    X = np.stack([clean1, clean2], axis=0)
+
+    means = np.mean(X, axis=1)
+    stds = np.std(X, axis=1)
+    vars_ = np.var(X, axis=1)
+    rms = np.sqrt(np.mean(X**2, axis=1))
+    sum_abs_diff = np.sum(np.abs(np.diff(X, axis=1)), axis=1)
+
+    feat = np.concatenate([means, stds, vars_, rms, sum_abs_diff], axis=0).reshape(1, -1)
+    preds = model_lstm.predict(feat, verbose=0)
+    print(preds)
+    pred = np.argmax(preds, axis=1)
+    return pred
 
 while True:
     try:
@@ -58,24 +96,8 @@ while True:
         ch1 = cleanup(ch1)
         ch2 = cleanup(ch2)
 
-        # Combine and convert to spectrogram
-        spec1 = get_spectrogram(tf.convert_to_tensor(ch1, dtype=tf.float32))
-        spec2 = get_spectrogram(tf.convert_to_tensor(ch2, dtype=tf.float32))    # shape (freq, time, channels)
-
-        spec = np.stack([spec1, spec2], axis=-1) 
-
-        spec = np.expand_dims(spec, axis=0)
-
-        print(spec1.shape, spec2.shape, spec.shape)
-        # shape (1, freq, time, channels)
-
-        # Predict
-        preds = model.predict(spec)
-        label = np.argmax(preds, axis=1)
-
-        # print(preds)
-
-        print(f"Predicted label: {label}")
+        pred = predict_LSTM(ch1, ch2)
+        print("LSTM Prediction:", pred)
         # ch1, ch2 = [], []
 
     except KeyboardInterrupt:
@@ -98,7 +120,7 @@ while True:
         fig.colorbar(pcm2, ax=axes[1], label='Amplitude')
 
         plt.tight_layout()
-        plt.savefig('rest_data_both_channels.png')
+        plt.savefig('spec.png')
         plt.close()
         receiver.close()
         sender.close()
