@@ -21,10 +21,11 @@ while True:
         v1 = np.array(values[0::2])
         v2 = np.array(values[1::2])
 
-        v1 = v1 * 3.3 / 65535
-        v2 = v2 * 3.3 / 65535
+        v1 = np.round(v1 * 3.3 / 65535 / 2, 6)
+        v2 = np.round(v2 * 3.3 / 65535 / 2, 6)
 
-        print(len(v1), len(v2))
+        print(v1, v2)
+        
         s_count += 1
 
     except KeyboardInterrupt:

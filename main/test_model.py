@@ -6,6 +6,7 @@ import os
 import struct
 import matplotlib.pyplot as plt
 import argparse
+import pandas as pd
 
 SAMPLING_RATE = 1000
 WIN = 1000  # window length
@@ -13,7 +14,7 @@ NFFT = 128
 NPERSEG = 128
 NOVERLAP = 64
 
-model_spec = tf.keras.models.load_model("training/models/spec/first_9921_accuracy.keras")
+model_spec = tf.keras.models.load_model("training/models/spec/first_9822_accuracy.keras")
 model_lstm = tf.keras.models.load_model("training/models/lstm/mlp_stats_raina.keras")
 
 print("Model loaded successfully.")
@@ -29,8 +30,6 @@ count = 0
 
 # ch1, ch2 = [1.5,]*1000, [1.5,]*1000
 
-ch1 = np.zeros(SAMPLING_RATE)
-ch2 = np.zeros(SAMPLING_RATE)
 
 def predict_spectrogram(clean1, clean2):
 
@@ -79,7 +78,10 @@ def main():
 
     args = parser.parse_args()
 
-    total_set = np.array()
+    total_set = np.array([])
+    
+    ch1 = np.array([])
+    ch2 = np.array([])
 
     while True:
         try:
@@ -91,26 +93,30 @@ def main():
             v1 = np.array(values[0::2])
             v2 = np.array(values[1::2])
 
-            v1 = v1 * 3.3 / 65535
-            v2 = v2 * 3.3 / 65535
-        
+            v1 = np.round(v1 * 3.3 / 65535 / 2, 6)
+            v2 = np.round(v2 * 3.3 / 65535 / 2, 6)
+
             nch1 = np.array(v1)
             nch2 = np.array(v2)
             # print(ch1, ch2)
 
-            ch1 = np.roll(ch1, -len(nch1))
-            ch2 = np.roll(ch2, -len(nch2))
-            ch1[-len(v1):] = nch1
-            ch2[-len(v2):] = nch2
+            nch1 = cleanup(nch1)
+            nch2 = cleanup(nch2)
 
-            print(ch1.shape, ch2.shape)
+            ch1 = np.concatenate([ch1, nch1])[-WIN:]
+            ch2 = np.concatenate([ch2, nch2])[-WIN:]
+
+            print(np.mean(ch1), np.mean(ch2))
 
             # Cleanup with fs=1000
-            ch1 = cleanup(ch1)
-            ch2 = cleanup(ch2)
+
+            if len(ch1) < WIN or len(ch2) < WIN:
+                # print("Not enough data to process.")
+                continue
 
             spec, pred = predict_spectrogram(ch1, ch2)
-            print("LSTM Prediction:", pred)
+            print("spectrogram Prediction:", pred)
+            
             total_set = np.append(total_set, spec)
             # ch1, ch2 = [], []
 
@@ -139,7 +145,11 @@ def main():
 
             if args.array_name:
                 fname = args.array_name
+                print(total_set.shape)
                 np.save(fname, total_set)
             receiver.close()
             sender.close()
             break
+
+if __name__ == "__main__":
+    main()
