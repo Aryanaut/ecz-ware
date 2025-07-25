@@ -5,6 +5,7 @@ from sampler import *
 import os
 import struct
 import matplotlib.pyplot as plt
+import argparse
 
 SAMPLING_RATE = 1000
 WIN = 1000  # window length
@@ -47,7 +48,7 @@ def predict_spectrogram(clean1, clean2):
     # Predict using
     preds = model_spec.predict(spec)
     label = np.argmax(preds, axis=1)
-    return label
+    return spec, label
     # print(preds)
 
     # print(f"Predicted label: {label}")
@@ -68,60 +69,77 @@ def predict_LSTM(clean1, clean2):
     pred = np.argmax(preds, axis=1)
     return pred
 
-while True:
-    try:
-        # i = input("Enter data to send: ")
-        data = receiver.receive_data()
+def main():
 
-        values = struct.unpack('200H', data)
+    parser = argparse.ArgumentParser()
 
-        v1 = np.array(values[0::2])
-        v2 = np.array(values[1::2])
+    group = parser.add_mutually_exclusive_group()
 
-        v1 = v1 * 3.3 / 65535
-        v2 = v2 * 3.3 / 65535
-    
-        nch1 = np.array(v1)
-        nch2 = np.array(v2)
-        # print(ch1, ch2)
+    group.add_argument('--save_file', dest='array_name', required=False)
 
-        ch1 = np.roll(ch1, -len(nch1))
-        ch2 = np.roll(ch2, -len(nch2))
-        ch1[-len(v1):] = nch1
-        ch2[-len(v2):] = nch2
+    args = parser.parse_args()
 
-        print(ch1.shape, ch2.shape)
+    total_set = np.array()
 
-        # Cleanup with fs=1000
-        ch1 = cleanup(ch1)
-        ch2 = cleanup(ch2)
+    while True:
+        try:
+            # i = input("Enter data to send: ")
+            data = receiver.receive_data()
 
-        pred = predict_LSTM(ch1, ch2)
-        print("LSTM Prediction:", pred)
-        # ch1, ch2 = [], []
+            values = struct.unpack('200H', data)
 
-    except KeyboardInterrupt:
-        print("Exiting...")
-        f1, t1, spec1 = stft(tf.convert_to_tensor(ch1, dtype=tf.float32), sampling_rate=SAMPLING_RATE, return_full=True)
-        f2, t2, spec2 = stft(tf.convert_to_tensor(ch2, dtype=tf.float32), sampling_rate=SAMPLING_RATE, return_full=True)
-        print("Channel 1 mean amplitude:", np.mean(spec1))
-        print("Channel 2 mean amplitude:", np.mean(spec2))
-        fig, axes = plt.subplots(2, 1, figsize=(12, 8), sharex=True, sharey=True)
+            v1 = np.array(values[0::2])
+            v2 = np.array(values[1::2])
 
-        pcm1 = axes[0].pcolormesh(t1, f1, spec1, shading='gouraud', cmap='viridis')
-        axes[0].set_title('Spectrogram - Channel 1')
-        axes[0].set_ylabel('Frequency [Hz]')
-        fig.colorbar(pcm1, ax=axes[0], label='Amplitude')
+            v1 = v1 * 3.3 / 65535
+            v2 = v2 * 3.3 / 65535
+        
+            nch1 = np.array(v1)
+            nch2 = np.array(v2)
+            # print(ch1, ch2)
 
-        pcm2 = axes[1].pcolormesh(t2, f2, spec2, shading='gouraud', cmap='viridis')
-        axes[1].set_title('Spectrogram - Channel 2')
-        axes[1].set_ylabel('Frequency [Hz]')
-        axes[1].set_xlabel('Time [sec]')
-        fig.colorbar(pcm2, ax=axes[1], label='Amplitude')
+            ch1 = np.roll(ch1, -len(nch1))
+            ch2 = np.roll(ch2, -len(nch2))
+            ch1[-len(v1):] = nch1
+            ch2[-len(v2):] = nch2
 
-        plt.tight_layout()
-        plt.savefig('spec.png')
-        plt.close()
-        receiver.close()
-        sender.close()
-        break
+            print(ch1.shape, ch2.shape)
+
+            # Cleanup with fs=1000
+            ch1 = cleanup(ch1)
+            ch2 = cleanup(ch2)
+
+            spec, pred = predict_spectrogram(ch1, ch2)
+            print("LSTM Prediction:", pred)
+            total_set = np.append(total_set, spec)
+            # ch1, ch2 = [], []
+
+        except KeyboardInterrupt:
+            print("Exiting...")
+            f1, t1, spec1 = stft(tf.convert_to_tensor(ch1, dtype=tf.float32), sampling_rate=SAMPLING_RATE, return_full=True)
+            f2, t2, spec2 = stft(tf.convert_to_tensor(ch2, dtype=tf.float32), sampling_rate=SAMPLING_RATE, return_full=True)
+            print("Channel 1 mean amplitude:", np.mean(spec1))
+            print("Channel 2 mean amplitude:", np.mean(spec2))
+            fig, axes = plt.subplots(2, 1, figsize=(12, 8), sharex=True, sharey=True)
+
+            pcm1 = axes[0].pcolormesh(t1, f1, spec1, shading='gouraud', cmap='viridis')
+            axes[0].set_title('Spectrogram - Channel 1')
+            axes[0].set_ylabel('Frequency [Hz]')
+            fig.colorbar(pcm1, ax=axes[0], label='Amplitude')
+
+            pcm2 = axes[1].pcolormesh(t2, f2, spec2, shading='gouraud', cmap='viridis')
+            axes[1].set_title('Spectrogram - Channel 2')
+            axes[1].set_ylabel('Frequency [Hz]')
+            axes[1].set_xlabel('Time [sec]')
+            fig.colorbar(pcm2, ax=axes[1], label='Amplitude')
+
+            plt.tight_layout()
+            plt.savefig('spec.png')
+            plt.close()
+
+            if args.array_name:
+                fname = args.array_name
+                np.save(fname, total_set)
+            receiver.close()
+            sender.close()
+            break
