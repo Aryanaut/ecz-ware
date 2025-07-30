@@ -29,9 +29,22 @@ sender.connect()
 count = 0
 
 # ch1, ch2 = [1.5,]*1000, [1.5,]*1000
+def subtract_noise(data, noise_profile):
+    """
+    Subtracts the noise profile from the data.
+    """
+    if noise_profile is not None:
+        noise_profile = noise_profile[:, np.newaxis, :]
+        print(noise_profile.shape)
+        print("Noise profile mean:", np.mean(noise_profile))
+        print("Spec mean:", np.mean(data))
+        data = np.clip(data - noise_profile, a_min=0, a_max=None)
+        print("Spec after noise profile subtraction mean:", np.mean(data))
+
+    return data
 
 
-def predict_spectrogram(clean1, clean2):
+def predict_spectrogram(clean1, clean2, noise_profile=None):
 
     # Combine and convert to spectrogram
     spec1 = get_spectrogram(tf.convert_to_tensor(clean1, dtype=tf.float32))
@@ -40,6 +53,9 @@ def predict_spectrogram(clean1, clean2):
     spec = np.stack([spec1, spec2], axis=-1) 
 
     spec = np.expand_dims(spec, axis=0)
+
+    if noise_profile is not None:
+        spec = subtract_noise(spec, noise_profile)
 
     print(spec1.shape, spec2.shape, spec.shape)
     # shape (1, freq, time, channels)
@@ -68,6 +84,41 @@ def predict_LSTM(clean1, clean2):
     pred = np.argmax(preds, axis=1)
     return pred
 
+def collect_noise_profile():
+    n_samples = 2000
+    profile_ch1 = np.array([])
+    profile_ch2 = np.array([])
+    i = 0
+    while len(profile_ch1) < n_samples or len(profile_ch2) < n_samples:
+        data = receiver.receive_data()
+        values = struct.unpack('200H', data)
+
+        v1 = np.array(values[0::2])
+        v2 = np.array(values[1::2])
+
+        v1 = np.round(v1 * 3.3 / 65535, 6)
+        v2 = np.round(v2 * 3.3 / 65535, 6)
+
+        nch1 = np.array(v1)
+        nch2 = np.array(v2)
+
+        profile_ch1 = np.concatenate([nch1, profile_ch1])
+        profile_ch2 = np.concatenate([nch2, profile_ch2])
+
+        i+= len(v1)     
+
+        print(f"Collected {i+1}/{n_samples} noise samples")
+
+    spec1 = get_spectrogram(tf.convert_to_tensor(profile_ch1, dtype=tf.float32))
+    spec2 = get_spectrogram(tf.convert_to_tensor(profile_ch2, dtype=tf.float32))
+    print("Noise sample shape:", spec1.shape, spec2.shape)
+
+    noise_spec = np.stack([spec1, spec2], axis=-1)
+
+    noise_profile = np.mean(noise_spec, axis=1) # time average 
+
+    return noise_profile
+
 def main():
 
     parser = argparse.ArgumentParser()
@@ -75,6 +126,7 @@ def main():
     group = parser.add_mutually_exclusive_group()
 
     group.add_argument('--save_file', dest='array_name', required=False)
+    # group.add_argument('--no_run', dest='no_run', required=False, action='store_true', default=False)
 
     args = parser.parse_args()
 
@@ -82,6 +134,12 @@ def main():
     
     ch1 = np.array([])
     ch2 = np.array([])
+
+    # print("Collecting noise samples...")
+    # time.sleep(1)
+
+    # profile = collect_noise_profile()
+    # print("Noise profile shape: ", profile.shape)
 
     while True:
         try:
@@ -93,13 +151,12 @@ def main():
             v1 = np.array(values[0::2])
             v2 = np.array(values[1::2])
 
-            v1 = np.round(v1 * 3.3 / 65535 / 2, 6)
-            v2 = np.round(v2 * 3.3 / 65535 / 2, 6)
+            v1 = np.round(v1 * 3.3 / 65535, 6)
+            v2 = np.round(v2 * 3.3 / 65535, 6)
 
             nch1 = np.array(v1)
             nch2 = np.array(v2)
             # print(ch1, ch2)
-
             nch1 = cleanup(nch1)
             nch2 = cleanup(nch2)
 
@@ -107,8 +164,6 @@ def main():
             ch2 = np.concatenate([ch2, nch2])[-WIN:]
 
             print(np.mean(ch1), np.mean(ch2))
-
-            # Cleanup with fs=1000
 
             if len(ch1) < WIN or len(ch2) < WIN:
                 # print("Not enough data to process.")
@@ -124,8 +179,17 @@ def main():
             print("Exiting...")
             f1, t1, spec1 = stft(tf.convert_to_tensor(ch1, dtype=tf.float32), sampling_rate=SAMPLING_RATE, return_full=True)
             f2, t2, spec2 = stft(tf.convert_to_tensor(ch2, dtype=tf.float32), sampling_rate=SAMPLING_RATE, return_full=True)
-            print("Channel 1 mean amplitude:", np.mean(spec1))
-            print("Channel 2 mean amplitude:", np.mean(spec2))
+
+            spec = np.stack([spec1, spec2], axis=-1)
+            # spec = np.expand_dims(spec, axis=0)
+            # spec = subtract_noise(spec, profile)
+
+            spec_no_batch = spec[0]        # shape (129, 9, 2)
+
+            spec1 = spec_no_batch[..., 0]  # (129, 9)
+            spec2 = spec_no_batch[..., 1] 
+
+            print(spec.shape)
             fig, axes = plt.subplots(2, 1, figsize=(12, 8), sharex=True, sharey=True)
 
             pcm1 = axes[0].pcolormesh(t1, f1, spec1, shading='gouraud', cmap='viridis')

@@ -2,6 +2,8 @@ from bridge import Bridge
 import time
 import numpy as np
 import socket, struct
+from sampler import *
+import numpy as np
 
 reciever = Bridge("0.0.0.0", 12345, recieve=True)
 reciever.connect()
@@ -12,24 +14,32 @@ sender.connect()
 sample_rate = 1000
 s_count = 0
 
+valuess = np.array([])
+
 while True:
     try:
+        # print("I'm trying man")
         # i = input("Enter data to send: ")
         data = reciever.receive_data()
-        values = struct.unpack('200H', data)
+        values = struct.unpack('1H', data)
 
-        v1 = np.array(values[0::2])
-        v2 = np.array(values[1::2])
+        v = (values[0] / 65535) * 3.3
+        print(v)
 
-        v1 = np.round(v1 * 3.3 / 65535 / 2, 6)
-        v2 = np.round(v2 * 3.3 / 65535 / 2, 6)
+        valuess = np.append(valuess, v)
 
-        print(v1, v2)
+        #v1 = cleanup(v1)
+        #v2 = cleanup(v2)
+
+        # print(round(np.mean(v1), 6), round(np.mean(v2), 6))
         
         s_count += 1
 
     except KeyboardInterrupt:
         print("Exiting... with count:", s_count)
+
+        print(valuess.shape)
+        np.save('other.npy', valuess)
         reciever.close()
         sender.close()
         break
