@@ -14,7 +14,7 @@ sender.connect()
 sample_rate = 1000
 s_count = 0
 
-fname = "aryan_scratch_1.npy"
+fname = "vishal_other_1.npy"
 
 valuess = np.array([])
 
