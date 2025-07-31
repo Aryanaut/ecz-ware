@@ -14,17 +14,31 @@ sender.connect()
 sample_rate = 1000
 s_count = 0
 
+fname = "aryan_scratch_1.npy"
+
 valuess = np.array([])
 
 while True:
     try:
+        if len(valuess) == 120000:
+            print("Exiting... with count:", s_count)
+
+            print(valuess.shape)
+            np.save(fname, valuess)
+            reciever.close()
+            sender.close()
+            break
         # print("I'm trying man")
         # i = input("Enter data to send: ")
         data = reciever.receive_data()
-        values = struct.unpack('1H', data)
+        values = struct.unpack('100H', data)
+        values = np.array(values)
 
-        v = (values[0] / 65535) * 3.3
-        print(v)
+        v = (values / 65535) * 3.3
+        v = np.round(v, 6)
+        if len(valuess) % 10000 == 0:
+            print("recorded samples: ", len(valuess))
+        # print(v)
 
         valuess = np.append(valuess, v)
 
@@ -39,7 +53,7 @@ while True:
         print("Exiting... with count:", s_count)
 
         print(valuess.shape)
-        np.save('other.npy', valuess)
+        np.save(fname, valuess)
         reciever.close()
         sender.close()
         break
