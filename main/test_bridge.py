@@ -14,13 +14,13 @@ sender.connect()
 sample_rate = 1000
 s_count = 0
 
-fname = "vishal_other_1.npy"
+fname = "aryan_extensor_rest6_0408.npy"
 
 valuess = np.array([])
 
 while True:
     try:
-        if len(valuess) == 120000:
+        if len(valuess) == 60000:
             print("Exiting... with count:", s_count)
 
             print(valuess.shape)
@@ -31,16 +31,27 @@ while True:
         # print("I'm trying man")
         # i = input("Enter data to send: ")
         data = reciever.receive_data()
-        values = struct.unpack('100H', data)
+        values = struct.unpack('200H', data)
         values = np.array(values)
+        values = (values / 65535) * 3.3
 
-        v = (values / 65535) * 3.3
-        v = np.round(v, 6)
-        if len(valuess) % 10000 == 0:
+        v1 = np.array(values[0::2])
+        v2 = np.array(values[1::2])
+
+        v1 = np.round(v1, 6)
+        v2 = np.round(v2, 6)
+
+        if len(valuess) % 5000 == 0:
             print("recorded samples: ", len(valuess))
         # print(v)
 
-        valuess = np.append(valuess, v)
+        value_stack = np.column_stack([v1, v2])
+
+        if valuess.size == 0:
+            valuess = value_stack
+        else:
+            valuess = np.vstack((valuess, value_stack))
+        
 
         #v1 = cleanup(v1)
         #v2 = cleanup(v2)
