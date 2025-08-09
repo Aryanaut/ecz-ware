@@ -14,13 +14,17 @@ sender.connect()
 sample_rate = 1000
 s_count = 0
 
-fname = "aryan_extensor_rest6_0408.npy"
+fname = "ariel_rest.npy"
 
-valuess = np.array([])
+batch_size = 100
+values_per_sample = 5
+expected_bytes = batch_size * values_per_sample * 2  # 2 bytes per unsigned short
+
+valuess = np.empty((0, values_per_sample))
 
 while True:
     try:
-        if len(valuess) == 60000:
+        if len(valuess) == 300000:
             print("Exiting... with count:", s_count)
 
             print(valuess.shape)
@@ -31,21 +35,22 @@ while True:
         # print("I'm trying man")
         # i = input("Enter data to send: ")
         data = reciever.receive_data()
-        values = struct.unpack('200H', data)
+
+        if len(data) != expected_bytes:
+            print(f"Warning: received {len(data)} bytes, expected {expected_bytes}. Skipping.")
+            continue
+
+        values = struct.unpack('500H', data)
         values = np.array(values)
-        values = (values / 65535) * 3.3
-
-        v1 = np.array(values[0::2])
-        v2 = np.array(values[1::2])
-
-        v1 = np.round(v1, 6)
-        v2 = np.round(v2, 6)
+        values = values.reshape(batch_size, values_per_sample)
 
         if len(valuess) % 5000 == 0:
-            print("recorded samples: ", len(valuess))
-        # print(v)
+            print(f"Received {len(valuess)} samples, shape: {valuess.shape}")
 
-        value_stack = np.column_stack([v1, v2])
+        # print(values)
+        # print(f1.shape, f2.shape, ax.shape, ay.shape, az.shape, gx.shape, gy.shape, gz.shape)
+
+        value_stack = values
 
         if valuess.size == 0:
             valuess = value_stack
@@ -58,10 +63,8 @@ while True:
 
         # print(round(np.mean(v1), 6), round(np.mean(v2), 6))
         
-        s_count += 1
-
     except KeyboardInterrupt:
-        print("Exiting... with count:", s_count)
+        print("Exiting...:")
 
         print(valuess.shape)
         np.save(fname, valuess)
