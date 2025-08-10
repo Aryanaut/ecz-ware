@@ -18,6 +18,8 @@ class Bridge:
             self.socket.bind(("0.0.0.0", self.port)) # Open on all channels I think
         print(f"Connected to bridge at {self.host}:{self.port}")
 
+        # self.socket.settimeout(5)
+
     def send_data(self, data):
 
         """Send data to the bridge."""

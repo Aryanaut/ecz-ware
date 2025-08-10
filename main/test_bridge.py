@@ -14,7 +14,7 @@ sender.connect()
 sample_rate = 1000
 s_count = 0
 
-fname = "ariel_rest.npy"
+fname = "ace_rest.npy"
 
 batch_size = 100
 values_per_sample = 5
