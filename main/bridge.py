@@ -18,7 +18,7 @@ class Bridge:
             self.socket.bind(("0.0.0.0", self.port)) # Open on all channels I think
         print(f"Connected to bridge at {self.host}:{self.port}")
 
-        # self.socket.settimeout(5)
+        self.socket.settimeout(2)
 
     def send_data(self, data):
 
@@ -36,9 +36,15 @@ class Bridge:
 
         if not self.socket:
             raise ConnectionError("Socket is not connected.")
-        data, addr = self.socket.recvfrom(2048)
+        
+        try:
+            data, addr = self.socket.recvfrom(2048)
         # print(f"Received data: {data}")
-        return data
+            return data
+        
+        except socket.timeout:
+            print('no data recieved')
+            return []
 
     def close(self):
 
